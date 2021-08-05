@@ -68,22 +68,53 @@ services:
       org.label-schema.group: "monitoring"
 
   cadvisor:
-    image: gcr.io/google-containers/cadvisor:v0.34.0
+    image: google/cadvisor
     container_name: cadvisor
+    runtime: nvidia
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:rw
       - /sys:/sys:ro
       - /var/lib/docker:/var/lib/docker:ro
-      #- /cgroup:/cgroup:ro #doesn't work on MacOS only for Linux
+      - /cgroup:/cgroup:ro #doesn't work on MacOS only for Linux
+      - /usr/lib/x86_64_linux-gnu:/usr/local/nvlib:ro  # nvml mapper
     restart: unless-stopped
+    privileged: true
+    environment:
+      - LD_LIBRARY_PATH=/usr/local/nvlib
+        #device-cgroup-rules:
+        #- 'c 195:* mrw'
     expose:
       - 8080
     networks:
       - monitor-net
     labels:
       org.label-schema.group: "monitoring"
+    deploy:
+      resources:
+        reservations:
+          devices: 
+            - capabilities: [gpu]  # gpu device
+   
 
+  dcgm_exporter:
+    container_name: dcgm-exporter
+    image: nvidia/dcgm-exporter
+    runtime: nvidia
+    cap_add: 
+      - ALL
+    expose:
+      - 9400
+    networks:
+      - monitor-net
+    labels:
+      org.label-schema.group: "monitoring"
+    deploy:
+      resources:
+        reservations:
+          devices: 
+            - capabilities: [gpu]  # gpu device
+  
   grafana:
     image: grafana/grafana:6.7.2
     container_name: grafana
